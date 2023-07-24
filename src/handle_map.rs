@@ -64,10 +64,13 @@
 
 use crate::error::{ErrorCode, ExternError};
 use crate::into_ffi::IntoFfi;
+use alloc::string::ToString;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt;
+use core::ops;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use std::error::Error as StdError;
-use std::fmt;
-use std::ops;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 /// `HandleMap` is a collection type which can hold any type of value, and
@@ -151,7 +154,7 @@ impl<T> EntryState<T> {
 // Small helper to check our casts.
 #[inline]
 fn to_u16(v: usize) -> u16 {
-    use std::u16::MAX as U16_MAX;
+    use core::u16::MAX as U16_MAX;
     // Shouldn't ever happen.
     assert!(v <= (U16_MAX as usize), "Bug: Doesn't fit in u16: {}", v);
     v as u16
@@ -488,7 +491,7 @@ impl<T> HandleMap<T> {
             entry.version += 1;
             let index = h.index;
             let last_state =
-                std::mem::replace(&mut entry.state, EntryState::InFreeList(self.first_free));
+                core::mem::replace(&mut entry.state, EntryState::InFreeList(self.first_free));
             self.num_entries -= 1;
             self.first_free = index;
 
@@ -682,7 +685,7 @@ unsafe impl IntoFfi for Handle {
 /// # #[macro_use] extern crate lazy_static;
 /// # extern crate ffi_support;
 /// # use ffi_support::*;
-/// # use std::sync::*;
+/// # use core::sync::*;
 ///
 /// // Somewhere...
 /// struct Thing { value: f64 }
@@ -935,7 +938,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: std::panic::UnwindSafe + FnOnce(&mut T) -> Result<R, E>,
+        F: core::panic::UnwindSafe + FnOnce(&mut T) -> Result<R, E>,
         ExternError: From<E>,
         R: IntoFfi,
     {
@@ -961,7 +964,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: std::panic::UnwindSafe + FnOnce(&T) -> Result<R, E>,
+        F: core::panic::UnwindSafe + FnOnce(&T) -> Result<R, E>,
         ExternError: From<E>,
         R: IntoFfi,
     {
@@ -978,7 +981,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: std::panic::UnwindSafe + FnOnce(&T) -> R,
+        F: core::panic::UnwindSafe + FnOnce(&T) -> R,
         R: IntoFfi,
     {
         self.call_with_result(out_error, h, |r| -> Result<_, HandleError> {
@@ -996,7 +999,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: std::panic::UnwindSafe + FnOnce(&mut T) -> R,
+        F: core::panic::UnwindSafe + FnOnce(&mut T) -> R,
         R: IntoFfi,
     {
         self.call_with_result_mut(out_error, h, |r| -> Result<_, HandleError> {
@@ -1009,7 +1012,7 @@ impl<T> ConcurrentHandleMap<T> {
     /// map errors onto an [`ExternError`][crate::ExternError]).
     pub fn insert_with_result<E, F>(&self, out_error: &mut ExternError, constructor: F) -> u64
     where
-        F: std::panic::UnwindSafe + FnOnce() -> Result<T, E>,
+        F: core::panic::UnwindSafe + FnOnce() -> Result<T, E>,
         ExternError: From<E>,
     {
         use crate::call_with_result;
@@ -1031,7 +1034,7 @@ impl<T> ConcurrentHandleMap<T> {
     /// [`call_with_output`][crate::call_with_output] internally.
     pub fn insert_with_output<F>(&self, out_error: &mut ExternError, constructor: F) -> u64
     where
-        F: std::panic::UnwindSafe + FnOnce() -> T,
+        F: core::panic::UnwindSafe + FnOnce() -> T,
     {
         // The Err type isn't important here beyond being convertable to ExternError
         self.insert_with_result(out_error, || -> Result<_, HandleError> {
@@ -1065,7 +1068,7 @@ lazy_static::lazy_static! {
         // Abuse HashMap's RandomState to get a strong RNG without bringing in
         // the `rand` crate (OTOH maybe we should just bring in the rand crate?)
         use std::collections::hash_map::RandomState;
-        use std::hash::{BuildHasher, Hasher};
+        use core::hash::{BuildHasher, Hasher};
         let init = RandomState::new().build_hasher().finish() as usize;
         AtomicUsize::new(init)
     };

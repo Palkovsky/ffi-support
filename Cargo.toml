@@ -11,7 +11,8 @@ categories = ["development-tools::ffi"]
 license = "Apache-2.0 / MIT"
 
 [features]
-default = []
+default = ["std"]
+std = []
 log_panics = []
 log_backtraces = ["log_panics", "backtrace"]
 

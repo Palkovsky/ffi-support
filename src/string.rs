@@ -15,16 +15,17 @@
  * limitations under the Licenses. */
 
 use crate::FfiStr;
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::ptr;
+use alloc::ffi::CString;
+use alloc::string::String;
+use core::ffi::c_char;
+use core::ptr;
 
 /// Convert a rust string into a NUL-terminated utf-8 string suitable for passing to C, or to things
 /// ABI-compatible with C.
 ///
 /// Important: This string must eventually be freed. You may either do that using the
-/// [`destroy_c_string`] method (or, if you must, by dropping the underlying [`std::ffi::CString`]
-/// after recovering it via [`std::ffi::CString::from_raw`]).
+/// [`destroy_c_string`] method (or, if you must, by dropping the underlying [`core::ffi::CString`]
+/// after recovering it via [`core::ffi::CString::from_raw`]).
 ///
 /// It's common to want to allow the consumer (e.g. on the "C" side of the FFI) to be allowed to
 /// free this memory, and the macro [`define_string_destructor!`] may be used to do so.
@@ -100,7 +101,7 @@ pub unsafe fn destroy_c_string(cstring: *mut c_char) {
 /// this case instead.
 ///
 /// Note: This means it's forbidden to call this outside of a `call_with_result` (or something else
-/// that uses [`std::panic::catch_unwind`]), as it is UB to panic across the FFI boundary.
+/// that uses [`core::panic::catch_unwind`]), as it is UB to panic across the FFI boundary.
 #[inline]
 #[deprecated(since = "0.3.0", note = "Please use FfiStr::as_str instead")]
 pub unsafe fn rust_str_from_c<'a>(c_string: *const c_char) -> &'a str {
@@ -139,7 +140,7 @@ pub unsafe fn opt_rust_str_from_c<'a>(c_string: *const c_char) -> Option<&'a str
 /// instead.
 ///
 /// Note: This means it's forbidden to call this outside of a `call_with_result` (or something else
-/// that uses `std::panic::catch_unwind`), as it is UB to panic across the FFI boundary.
+/// that uses `core::panic::catch_unwind`), as it is UB to panic across the FFI boundary.
 #[inline]
 #[deprecated(since = "0.3.0", note = "Please use FfiStr::into_string instead")]
 pub unsafe fn rust_string_from_c(c_string: *const c_char) -> String {

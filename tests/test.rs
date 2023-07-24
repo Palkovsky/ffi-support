@@ -19,8 +19,8 @@
 //! of handlemaps. See /docs/design/test-faster.md for why it's split -- TLDR:
 //! it uses rayon and is hard to rewrite with normal threads.
 
-use ffi_support::{ConcurrentHandleMap, ExternError};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use ffi_support::ExternError;
 use std::sync::Arc;
 
 fn with_error<F: FnOnce(&mut ExternError) -> T, T>(callback: F) -> T {
@@ -43,13 +43,14 @@ impl Drop for DropChecking {
     }
 }
 #[test]
+#[cfg(feature = "std")]
 fn test_concurrent_drop() {
     use rand::prelude::*;
     use rayon::prelude::*;
     let _ = env_logger::try_init();
     let drop_counter = Arc::new(AtomicUsize::new(0));
     let id = Arc::new(AtomicUsize::new(1));
-    let map = ConcurrentHandleMap::new();
+    let map = ffi_support::ConcurrentHandleMap::new();
     let count = 1000;
     let mut handles = (0..count)
         .into_par_iter()

@@ -14,6 +14,7 @@
  * See the Licenses for the specific language governing permissions and
  * limitations under the Licenses. */
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
@@ -106,10 +107,13 @@
 //! which contains several helpful inherent methods for extracting their data.
 //!
 
-use std::{panic, thread};
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::Vec;
 
 mod error;
 mod ffistr;
+#[cfg(feature = "std")]
 pub mod handle_map;
 mod into_ffi;
 #[macro_use]
@@ -124,6 +128,7 @@ pub use crate::string::*;
 
 // We export most of the types from this, but some constants
 // (MAX_CAPACITY) don't make sense at the top level.
+#[cfg(feature = "std")]
 pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap};
 
 /// Call a callback that returns a `Result<T, E>` while:
@@ -150,7 +155,7 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///
 /// ```rust,no_run
 /// # use ffi_support::{ExternError, ErrorCode, FfiStr};
-/// # use std::os::raw::c_char;
+/// # use core::os::raw::c_char;
 ///
 /// # #[derive(Debug)]
 /// # struct BadEmptyString;
@@ -183,9 +188,10 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///     })
 /// }
 /// ```
+#[cfg(feature = "std")]
 pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
-    F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
+    F: core::panic::UnwindSafe + FnOnce() -> Result<R, E>,
     E: Into<ExternError>,
     R: IntoFfi,
 {
@@ -204,24 +210,25 @@ where
 ///
 /// This (or [`call_with_result`]) should be in the majority of the FFI functions, see
 /// the crate top-level docs for more info.
+#[cfg(feature = "std")]
 pub fn call_with_output<R, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
-    F: panic::UnwindSafe + FnOnce() -> R,
+    F: core::panic::UnwindSafe + FnOnce() -> R,
     R: IntoFfi,
 {
     // We need something that's `Into<ExternError>`, even though we never return it, so just use
     // `ExternError` itself.
     call_with_result(out_error, || -> Result<_, ExternError> { Ok(callback()) })
 }
-
+#[cfg(feature = "std")]
 fn call_with_result_impl<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
-    F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
+    F: core::panic::UnwindSafe + FnOnce() -> Result<R, E>,
     E: Into<ExternError>,
     R: IntoFfi,
 {
     *out_error = ExternError::success();
-    let res: thread::Result<(ExternError, R::Value)> = panic::catch_unwind(|| {
+    let res: std::thread::Result<(ExternError, R::Value)> = std::panic::catch_unwind(|| {
         ensure_panic_hook_is_setup();
         match callback() {
             Ok(v) => (ExternError::default(), v.into_ffi_value()),
@@ -242,12 +249,13 @@ where
 
 /// This module exists just to expose a variant of [`call_with_result`] and [`call_with_output`]
 /// that aborts, instead of unwinding, on panic.
+#[cfg(feature = "std")]
 pub mod abort_on_panic {
     use super::*;
 
     // Struct that exists to automatically process::abort if we don't call
-    // `std::mem::forget()` on it. This can have substantial performance
-    // benefits over calling `std::panic::catch_unwind` and aborting if a panic
+    // `core::mem::forget()` on it. This can have substantial performance
+    // benefits over calling `core::panic::catch_unwind` and aborting if a panic
     // was caught, in addition to not requiring AssertUnwindSafe (for example).
     struct AbortOnDrop;
     impl Drop for AbortOnDrop {
@@ -266,7 +274,7 @@ pub mod abort_on_panic {
     {
         let aborter = AbortOnDrop;
         let res = callback();
-        std::mem::forget(aborter);
+        core::mem::forget(aborter);
         res
     }
 
@@ -305,17 +313,17 @@ pub mod abort_on_panic {
 /// Initialize our panic handling hook to optionally log panics
 #[cfg(feature = "log_panics")]
 pub fn ensure_panic_hook_is_setup() {
-    use std::sync::Once;
+    use core::sync::Once;
     static INIT_BACKTRACES: Once = Once::new();
     INIT_BACKTRACES.call_once(move || {
         #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
         {
-            std::env::set_var("RUST_BACKTRACE", "1");
+            core::env::set_var("RUST_BACKTRACE", "1");
         }
         // Turn on a panic hook which logs both backtraces and the panic
         // "Location" (file/line). We do both in case we've been stripped,
         // ).
-        std::panic::set_hook(Box::new(move |panic_info| {
+        core::panic::set_hook(Box::new(move |panic_info| {
             let (file, line) = if let Some(loc) = panic_info.location() {
                 (loc.file(), loc.line())
             } else {
@@ -465,19 +473,19 @@ impl ByteBuffer {
             // When copying stacks, Go checks for pointer validity and chokes when `bytes` is empty
             // (see https://github.com/golang/go/blob/0d0193409492b96881be6407ad50123e3557fdfb/src/runtime/stack.go#L619)
             //
-            // An empty Vec has no allocation and its pointer points to a dangling value (std::ptr::Unique::dangling())
+            // An empty Vec has no allocation and its pointer points to a dangling value (core::ptr::Unique::dangling())
             // which may not be 0 and therefor invalid for Go.
             return Self {
-                data: std::ptr::null_mut(),
+                data: core::ptr::null_mut(),
                 len: 0,
             };
         }
 
-        use std::convert::TryFrom;
+        use core::convert::TryFrom;
         let mut buf = bytes.into_boxed_slice();
         let data = buf.as_mut_ptr();
         let len = i64::try_from(buf.len()).expect("buffer length cannot fit into a i64.");
-        std::mem::forget(buf);
+        core::mem::forget(buf);
         Self { data, len }
     }
 
@@ -488,13 +496,13 @@ impl ByteBuffer {
         if self.data.is_null() {
             &[]
         } else {
-            unsafe { std::slice::from_raw_parts(self.data, self.len()) }
+            unsafe { core::slice::from_raw_parts(self.data, self.len()) }
         }
     }
 
     #[inline]
     fn len(&self) -> usize {
-        use std::convert::TryInto;
+        use core::convert::TryInto;
         self.len
             .try_into()
             .expect("ByteBuffer length negative or overflowed")
@@ -507,7 +515,7 @@ impl ByteBuffer {
         if self.data.is_null() {
             &mut []
         } else {
-            unsafe { std::slice::from_raw_parts_mut(self.data, self.len()) }
+            unsafe { core::slice::from_raw_parts_mut(self.data, self.len()) }
         }
     }
 
@@ -590,7 +598,7 @@ impl Default for ByteBuffer {
     fn default() -> Self {
         Self {
             len: 0 as i64,
-            data: std::ptr::null_mut(),
+            data: core::ptr::null_mut(),
         }
     }
 }

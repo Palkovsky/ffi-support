@@ -15,8 +15,9 @@
  * limitations under the Licenses. */
 
 use crate::string::*;
-use std::os::raw::{c_char, c_void};
-use std::ptr;
+use alloc::string::String;
+use core::ffi::{c_char, c_void};
+use core::ptr;
 
 /// This trait is used to return types over the FFI. It essentially is a mapping between a type and
 /// version of that type we can pass back to C (`IntoFfi::Value`).
@@ -112,7 +113,7 @@ use std::ptr;
 ///
 /// ```rust
 /// # use ffi_support::{self, IntoFfi};
-/// # use std::{ptr, os::raw::c_char};
+/// # use core::{ptr, os::raw::c_char};
 /// pub struct SyncKeys(pub String, pub String);
 ///
 /// #[repr(C)]
@@ -181,7 +182,7 @@ pub unsafe trait IntoFfi: Sized {
     ///   doing, because this is probably a mistake.
     ///
     /// Invalid examples include things like `&str`, `&[T]`, `String`, `Vec<T>`,
-    /// `std::ffi::CString`, `&std::ffi::CStr`, etc.
+    /// `core::ffi::CString`, `&core::ffi::CStr`, etc.
     type Value;
 
     /// Return an 'empty' value. This is what's passed back to C in the case of an error,

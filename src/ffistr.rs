@@ -14,13 +14,14 @@
  * See the Licenses for the specific language governing permissions and
  * limitations under the Licenses. */
 
-use std::ffi::CStr;
-use std::marker::PhantomData;
-use std::os::raw::c_char;
+use alloc::string::{String, ToString};
+use core::ffi::c_char;
+use core::ffi::CStr;
+use core::marker::PhantomData;
 
 /// `FfiStr<'a>` is a safe (`#[repr(transparent)]`) wrapper around a
 /// nul-terminated `*const c_char` (e.g. a C string). Conceptually, it is
-/// similar to [`std::ffi::CStr`], except that it may be used in the signatures
+/// similar to [`core::ffi::CStr`], except that it may be used in the signatures
 /// of extern "C" functions.
 ///
 /// Functions accepting strings should use this instead of accepting a C string
@@ -84,7 +85,7 @@ impl<'a> FfiStr<'a> {
         }
     }
 
-    /// Construct a FfiStr from a `std::ffi::CStr`. This is provided for
+    /// Construct a FfiStr from a `core::ffi::CStr`. This is provided for
     /// completeness, as a safe method of producing an `FfiStr` in Rust.
     #[inline]
     pub fn from_cstr(cstr: &'a CStr) -> Self {
@@ -121,7 +122,7 @@ impl<'a> FfiStr<'a> {
             return None;
         }
         unsafe {
-            match std::ffi::CStr::from_ptr(self.cstr).to_str() {
+            match core::ffi::CStr::from_ptr(self.cstr).to_str() {
                 Ok(s) => Some(s),
                 Err(e) => {
                     log::error!("Invalid UTF-8 was passed to rust! {:?}", e);
@@ -167,8 +168,8 @@ impl<'a> FfiStr<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for FfiStr<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'a> core::fmt::Debug for FfiStr<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let Some(s) = self.as_opt_str() {
             write!(f, "FfiStr({:?})", s)
         } else {

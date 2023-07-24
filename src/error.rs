@@ -15,8 +15,10 @@
  * limitations under the Licenses. */
 
 use crate::string::{destroy_c_string, rust_string_to_c};
-use std::os::raw::c_char;
-use std::{self, ptr};
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use core::ffi::c_char;
+use core::{self, ptr};
 
 /// Represents an error that occured within rust, storing both an error code, and additional data
 /// that may be used by the caller.
@@ -144,8 +146,8 @@ pub struct ExternError {
     message: *mut c_char,
 }
 
-impl std::panic::UnwindSafe for ExternError {}
-impl std::panic::RefUnwindSafe for ExternError {}
+impl core::panic::UnwindSafe for ExternError {}
+impl core::panic::RefUnwindSafe for ExternError {}
 
 /// This is sound so long as our fields are private.
 unsafe impl Send for ExternError {}
@@ -182,6 +184,7 @@ impl ExternError {
     ///
     /// We assume we're not inside a catch_unwind, and so we wrap inside one
     /// ourselves.
+    #[cfg(feature = "std")]
     pub fn consume_and_log_if_error(self) {
         if !self.code.is_success() {
             // in practice this should never panic, but you never know...
@@ -252,10 +255,10 @@ impl Default for ExternError {
     }
 }
 
-// This is the `Err` of std::thread::Result, which is what
+// This is the `Err` of core::thread::Result, which is what
 // `panic::catch_unwind` returns.
-impl From<Box<dyn std::any::Any + Send + 'static>> for ExternError {
-    fn from(e: Box<dyn std::any::Any + Send + 'static>) -> Self {
+impl From<Box<dyn core::any::Any + Send + 'static>> for ExternError {
+    fn from(e: Box<dyn core::any::Any + Send + 'static>) -> Self {
         // The documentation suggests that it will *usually* be a str or String.
         let message = if let Some(s) = e.downcast_ref::<&'static str>() {
             (*s).to_string()
